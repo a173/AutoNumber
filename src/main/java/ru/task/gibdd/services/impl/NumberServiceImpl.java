@@ -31,13 +31,15 @@ public class NumberServiceImpl implements NumberService {
 	}
 
 	@Override
+	@Transactional(isolation = Isolation.SERIALIZABLE)
 	public NumberRs next() throws OverNumberLimit {
-		checkLastNumber();
+		if (checkLastNumber())
+			throw new OverNumberLimit(NumberEnum.OVER_NUMBER_LIMIT.getValue());
 
 		NumberEntity newNumber;
 		try {
 			NumberEntity lastNumber = numberRepository.findLast().orElseThrow(NotFoundException::new);
-			newNumber = numberRepository.save(numberMapper.numberToEntity(createNumber(lastNumber), NumberEnum.REGION));
+			newNumber = numberRepository.save(createNextNumber(lastNumber));
 		} catch (NotFoundException ex) {
 			newNumber = numberRepository
 					.save(NumberEntity.builder().value(NumberEnum.DEFAULT_NUMBER.getValue()).build());
@@ -46,7 +48,18 @@ public class NumberServiceImpl implements NumberService {
 		return numberMapper.numberToRs(newNumber);
 	}
 
-	private NumberParse createNumber(NumberEntity lastNumber) throws OverNumberLimit {
+	private NumberEntity createNextNumber(NumberEntity lastNumber) throws OverNumberLimit {
+		Set<NumberEntity> setNumber = numberRepository.findAll();
+
+		NumberEntity newEntity = lastNumber;
+		do {
+			newEntity = createNextEntity(newEntity);
+		} while (setNumber.contains(newEntity));
+
+		return newEntity;
+	}
+
+	private NumberEntity createNextEntity(NumberEntity lastNumber) throws OverNumberLimit {
 		NumberParse numberParse = numberMapper.entityToNumber(lastNumber);
 
 		String newElement = String.format("%03d", changeFigures(numberParse.getFigures()));
@@ -54,18 +67,17 @@ public class NumberServiceImpl implements NumberService {
 
 		if (newElement.equals("000")) {
 			newElement = changeLast(numberParse.getLastLetter());
-
 			numberParse.setLastLetter(newElement);
+
 			if (newElement.equals("AA")) {
 				Character ch = changeFirst(numberParse.getFirstLetter());
-
 				if (ch == numberParse.getFirstLetter())
 					throw new OverNumberLimit(NumberEnum.OVER_NUMBER_LIMIT.getValue());
 				numberParse.setFirstLetter(ch);
 			}
 		}
 
-		return numberParse;
+		return numberMapper.numberToEntity(numberParse, NumberEnum.REGION);
 	}
 
 	private int changeFigures(String oldNum) {
@@ -110,16 +122,17 @@ public class NumberServiceImpl implements NumberService {
 	}
 
 	@Override
+	@Transactional(isolation = Isolation.SERIALIZABLE)
 	public NumberRs random() throws OverNumberLimit {
-		NumberEntity newNumber = numberRepository.save(createNumber());
+		if (checkLastNumber())
+			throw new OverNumberLimit(NumberEnum.OVER_NUMBER_LIMIT.getValue());
+
+		NumberEntity newNumber = numberRepository.save(createRandomNumber());
 
 		return numberMapper.numberToRs(newNumber);
 	}
 
-	@Transactional(isolation = Isolation.SERIALIZABLE)
-	public NumberEntity createNumber() throws OverNumberLimit {
-		checkLastNumber();
-
+	private NumberEntity createRandomNumber() {
 		Set<NumberEntity> setNumber = numberRepository.findAll();
 
 		NumberEntity newNumber;
@@ -138,8 +151,7 @@ public class NumberServiceImpl implements NumberService {
 				.build(), NumberEnum.REGION);
 	}
 
-	private void checkLastNumber() throws OverNumberLimit {
-		if (numberRepository.findByValue(NumberEnum.LAST_NUMBER.getValue()).isPresent())
-			throw new OverNumberLimit(NumberEnum.OVER_NUMBER_LIMIT.getValue());
+	private boolean checkLastNumber() {
+		return numberRepository.findByValue(NumberEnum.LAST_NUMBER.getValue()).isPresent();
 	}
 }
