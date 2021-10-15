@@ -34,11 +34,6 @@ public class ResponseMessage {
 			return this;
 		}
 
-		public ResponseMessageBuilder message(List<String> message) {
-			this.message = String.join(" & ", message);
-			return this;
-		}
-
 		public ResponseMessage build() {
 			return new ResponseMessage(errorCode, message);
 		}

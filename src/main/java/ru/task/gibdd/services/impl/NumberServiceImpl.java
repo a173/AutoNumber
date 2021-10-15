@@ -5,6 +5,9 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.data.crossstore.ChangeSetPersister.NotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
+import ru.task.gibdd.config.NumberEnum;
 import ru.task.gibdd.exceptions.OverNumberLimit;
 import ru.task.gibdd.mappers.NumberMapper;
 import ru.task.gibdd.models.NumberParse;
@@ -14,74 +17,76 @@ import ru.task.gibdd.repository.NumberRepository;
 import ru.task.gibdd.services.NumberService;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class NumberServiceImpl implements NumberService {
-	private static final int MAX = 999;
-	private static final String DEFAULT_NUMBER = "A000AA" + NumberParse.REGION;
-	private static final String LAST_NUMBER = "Х999ХХ" + NumberParse.REGION;
-	private static final String ALPHABET = "АВЕКМНОРСТУХ";
-	private static final String OVER_NUMBER_LIMIT = "Over number limit";
-
 	private final NumberRepository numberRepository;
 	private final NumberMapper numberMapper;
 
 	@Override
+	public List<NumberRs> all() {
+		return numberMapper.toDtoList(Lists.newArrayList(numberRepository.findAll()));
+	}
+
+	@Override
 	public NumberRs next() throws OverNumberLimit {
+		checkLastNumber();
+
 		NumberEntity newNumber;
-
-		if (numberRepository.findByValue(LAST_NUMBER).isPresent())
-			throw new OverNumberLimit(OVER_NUMBER_LIMIT);
-
 		try {
 			NumberEntity lastNumber = numberRepository.findLast().orElseThrow(NotFoundException::new);
-			NumberParse parseNewNumber = createNumber(numberMapper.entityToNumber(lastNumber));
-			newNumber = numberRepository.save(numberMapper.numberToEntity(parseNewNumber));
+			newNumber = numberRepository.save(numberMapper.numberToEntity(createNumber(lastNumber), NumberEnum.REGION));
 		} catch (NotFoundException ex) {
-			newNumber = numberRepository.save(NumberEntity.builder().value(DEFAULT_NUMBER).build());
+			newNumber = numberRepository
+					.save(NumberEntity.builder().value(NumberEnum.DEFAULT_NUMBER.getValue()).build());
 		}
 
 		return numberMapper.numberToRs(newNumber);
 	}
 
-	private NumberParse createNumber(NumberParse lastNumber) throws OverNumberLimit {
-		String newElement = String.format("%03d", changeFigures(lastNumber.getFigures()));
-		lastNumber.setFigures(newElement);
+	private NumberParse createNumber(NumberEntity lastNumber) throws OverNumberLimit {
+		NumberParse numberParse = numberMapper.entityToNumber(lastNumber);
+
+		String newElement = String.format("%03d", changeFigures(numberParse.getFigures()));
+		numberParse.setFigures(newElement);
 
 		if (newElement.equals("000")) {
-			newElement = changeLast(lastNumber.getLastLetter());
-			lastNumber.setLastLetter(newElement);
+			newElement = changeLast(numberParse.getLastLetter());
+
+			numberParse.setLastLetter(newElement);
 			if (newElement.equals("AA")) {
-				Character ch = changeFirst(lastNumber.getFirstLetter());
-				if (ch == lastNumber.getFirstLetter())
-					throw new OverNumberLimit(OVER_NUMBER_LIMIT);
+				Character ch = changeFirst(numberParse.getFirstLetter());
+
+				if (ch == numberParse.getFirstLetter())
+					throw new OverNumberLimit(NumberEnum.OVER_NUMBER_LIMIT.getValue());
+				numberParse.setFirstLetter(ch);
 			}
 		}
 
-		return lastNumber;
+		return numberParse;
 	}
 
 	private int changeFigures(String oldNum) {
 		int number = Integer.parseInt(oldNum);
 
-		return number < MAX ? ++number : 0;
+		return number < Integer.parseInt(NumberEnum.MAX.getValue()) ? ++number : 0;
 	}
 
 	private String changeLast(String oldLet) {
 		StringBuilder newLet = new StringBuilder(oldLet);
 
 		char letter = oldLet.charAt(1);
-		if (letter != ALPHABET.charAt(ALPHABET.length() - 1)) {
-			newLet.setCharAt(1, ALPHABET.charAt(ALPHABET.indexOf(letter) + 1));
+		if (letter != lastLetter()) {
+			newLet.setCharAt(1, nextLetter(letter));
 		} else {
-			newLet.setCharAt(1, ALPHABET.charAt(0));
+			newLet.setCharAt(1, NumberEnum.ALPHABET.getValue().charAt(0));
 			letter = oldLet.charAt(0);
-			if (letter != ALPHABET.charAt(ALPHABET.length() - 1)) {
-				newLet.setCharAt(0, ALPHABET.charAt(ALPHABET.indexOf(letter) + 1));
-			} else {
-				newLet.setCharAt(0, ALPHABET.charAt(0));
-			}
+			if (letter != lastLetter())
+				newLet.setCharAt(0, nextLetter(letter));
+			else
+				newLet.setCharAt(0, NumberEnum.ALPHABET.getValue().charAt(0));
 		}
 
 		return newLet.toString();
@@ -90,39 +95,51 @@ public class NumberServiceImpl implements NumberService {
 	private Character changeFirst(Character oldLet) {
 		Character newChar = oldLet;
 
-		if (oldLet != ALPHABET.charAt(ALPHABET.length() - 1))
-			newChar = ALPHABET.charAt(ALPHABET.indexOf(oldLet) + 1);
+		if (oldLet != lastLetter())
+			newChar = nextLetter(oldLet);
 
 		return newChar;
 	}
 
+	private char lastLetter() {
+		return NumberEnum.ALPHABET.getValue().charAt(NumberEnum.ALPHABET.getValue().length() - 1);
+	}
+
+	private char nextLetter(Character letter) {
+		return NumberEnum.ALPHABET.getValue().charAt(NumberEnum.ALPHABET.getValue().indexOf(letter) + 1);
+	}
+
 	@Override
 	public NumberRs random() throws OverNumberLimit {
-		NumberParse parseNewNumber = createNumber();
-
-		NumberEntity newNumber = numberRepository.save(numberMapper.numberToEntity(parseNewNumber));
+		NumberEntity newNumber = numberRepository.save(createNumber());
 
 		return numberMapper.numberToRs(newNumber);
 	}
 
-	private NumberParse createNumber() throws OverNumberLimit {
-		if (numberRepository.findByValue(LAST_NUMBER).isPresent())
-			throw new OverNumberLimit(OVER_NUMBER_LIMIT);
+	@Transactional(isolation = Isolation.SERIALIZABLE)
+	public NumberEntity createNumber() throws OverNumberLimit {
+		checkLastNumber();
 
-		NumberParse newNumber = NumberParse.builder()
-				.firstLetter(RandomStringUtils.random(1, ALPHABET).charAt(0))
-				.figures(RandomStringUtils.randomNumeric(3))
-				.lastLetter(RandomStringUtils.random(2, ALPHABET))
-				.build();
+		Set<NumberEntity> setNumber = numberRepository.findAll();
 
-		if (numberRepository.findByValue(numberMapper.numberToEntity(newNumber).getValue()).isPresent())
-			createNumber();
+		NumberEntity newNumber;
+		do {
+			newNumber = createRandomEntity();
+		} while (setNumber.contains(newNumber));
 
 		return newNumber;
 	}
 
-	@Override
-	public List<NumberRs> all() {
-		return numberMapper.toDtoList(Lists.newArrayList(numberRepository.findAll()));
+	private NumberEntity createRandomEntity(){
+		return numberMapper.numberToEntity(NumberParse.builder()
+				.firstLetter(RandomStringUtils.random(1, NumberEnum.ALPHABET.getValue()).charAt(0))
+				.figures(RandomStringUtils.randomNumeric(3))
+				.lastLetter(RandomStringUtils.random(2, NumberEnum.ALPHABET.getValue()))
+				.build(), NumberEnum.REGION);
+	}
+
+	private void checkLastNumber() throws OverNumberLimit {
+		if (numberRepository.findByValue(NumberEnum.LAST_NUMBER.getValue()).isPresent())
+			throw new OverNumberLimit(NumberEnum.OVER_NUMBER_LIMIT.getValue());
 	}
 }
