@@ -19,8 +19,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class NumberServiceImpl implements NumberService {
 	private static final int MAX = 999;
-	private static final String DEFAULT_NUMBER = "A000AA 116 RUS";
-	private static final String LAST_NUMBER = "Х999ХХ 116 RUS";
+	private static final String DEFAULT_NUMBER = "A000AA" + NumberParse.REGION;
+	private static final String LAST_NUMBER = "Х999ХХ" + NumberParse.REGION;
 	private static final String ALPHABET = "АВЕКМНОРСТУХ";
 	private static final String OVER_NUMBER_LIMIT = "Over number limit";
 
