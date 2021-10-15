@@ -1,6 +1,6 @@
 Для запуска приложения необходимо выполнить скрипт deploy.sh
 
-Swagger располагается по адресу http://localhost:8080/swagger-ui.html
+Swagger располагается по адресу http://localhost:8080/number/swagger-ui.html
 
 ### Тестовое задание "Гаишник"
 
