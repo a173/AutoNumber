@@ -16,13 +16,11 @@ public interface NumberMapper {
 	NumberParse entityToNumber(NumberEntity entity);
 
 	@Mapping(target = "id", ignore = true)
-	@Mapping(target = "value",
-			expression = "java(" +
-					"number.getFirstLetter() + " +
-					"number.getFigures() + " +
-					"number.getLastLetter() + " +
-					"number.REGION)" +
-					"")
+	@Mapping(target = "value", expression = "java(" +
+											"number.getFirstLetter() + " +
+											"number.getFigures() + " +
+											"number.getLastLetter() + " +
+											"number.REGION)")
 	NumberEntity numberToEntity(NumberParse number);
 
 	@Mapping(target = "value", expression = "java(number.getValue())")
