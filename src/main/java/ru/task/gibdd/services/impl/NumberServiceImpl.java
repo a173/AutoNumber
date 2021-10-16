@@ -62,18 +62,18 @@ public class NumberServiceImpl implements NumberService {
 	private NumberEntity createNextEntity(NumberEntity lastNumber) throws OverNumberLimit {
 		NumberParse numberParse = numberMapper.entityToNumber(lastNumber);
 
-		String newElement = String.format("%03d", changeFigures(numberParse.getFigures()));
-		numberParse.setFigures(newElement);
+		String newFigures = String.format("%03d", changeFigures(numberParse.getFigures()));
+		numberParse.setFigures(newFigures);
 
-		if (newElement.equals("000")) {
-			newElement = changeLast(numberParse.getLastLetter());
-			numberParse.setLastLetter(newElement);
+		if (newFigures.equals("000")) {
+			String newLastLetters = changeLast(numberParse.getLastLetter());
+			numberParse.setLastLetter(newLastLetters);
 
-			if (newElement.equals("AA")) {
-				Character ch = changeFirst(numberParse.getFirstLetter());
-				if (ch == numberParse.getFirstLetter())
+			if (newLastLetters.equals("АА")) {
+				if (numberParse.getFirstLetter() == lastLetter())
 					throw new OverNumberLimit(NumberEnum.OVER_NUMBER_LIMIT.getValue());
-				numberParse.setFirstLetter(ch);
+				Character newFirstLetter = nextLetter(numberParse.getFirstLetter());
+				numberParse.setFirstLetter(newFirstLetter);
 			}
 		}
 
@@ -95,29 +95,18 @@ public class NumberServiceImpl implements NumberService {
 		} else {
 			newLet.setCharAt(1, NumberEnum.ALPHABET.getValue().charAt(0));
 			letter = oldLet.charAt(0);
-			if (letter != lastLetter())
-				newLet.setCharAt(0, nextLetter(letter));
-			else
-				newLet.setCharAt(0, NumberEnum.ALPHABET.getValue().charAt(0));
+			newLet.setCharAt(0, letter != lastLetter() ?
+					nextLetter(letter) : NumberEnum.ALPHABET.getValue().charAt(0));
 		}
 
 		return newLet.toString();
 	}
 
-	private Character changeFirst(Character oldLet) {
-		Character newChar = oldLet;
-
-		if (oldLet != lastLetter())
-			newChar = nextLetter(oldLet);
-
-		return newChar;
-	}
-
-	private char lastLetter() {
+	private Character lastLetter() {
 		return NumberEnum.ALPHABET.getValue().charAt(NumberEnum.ALPHABET.getValue().length() - 1);
 	}
 
-	private char nextLetter(Character letter) {
+	private Character nextLetter(Character letter) {
 		return NumberEnum.ALPHABET.getValue().charAt(NumberEnum.ALPHABET.getValue().indexOf(letter) + 1);
 	}
 
