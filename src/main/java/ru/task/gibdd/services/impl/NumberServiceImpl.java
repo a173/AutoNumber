@@ -39,13 +39,23 @@ public class NumberServiceImpl implements NumberService {
 		NumberEntity newNumber;
 		try {
 			NumberEntity lastNumber = numberRepository.findLast().orElseThrow(NotFoundException::new);
+			if (checkNewRegion(lastNumber))
+				throw new NotFoundException();
+
 			newNumber = numberRepository.save(createNextNumber(lastNumber));
 		} catch (NotFoundException ex) {
-			newNumber = numberRepository
-					.save(NumberEntity.builder().value(NumberEnum.DEFAULT_NUMBER.getValue()).build());
+			NumberEntity defaultNumber = NumberEntity.builder()
+					.value(NumberEnum.DEFAULT_NUMBER.getValue() + NumberEnum.REGION.getValue())
+					.build();
+
+			newNumber = numberRepository.save(createNextNumber(defaultNumber));
 		}
 
 		return numberMapper.numberToRs(newNumber);
+	}
+
+	private boolean checkNewRegion(NumberEntity lastNumber) {
+		return !lastNumber.getValue().substring(6).equals(NumberEnum.REGION.getValue());
 	}
 
 	private NumberEntity createNextNumber(NumberEntity lastNumber) throws OverNumberLimit {
@@ -141,6 +151,6 @@ public class NumberServiceImpl implements NumberService {
 	}
 
 	private boolean checkLastNumber() {
-		return numberRepository.findByValue(NumberEnum.LAST_NUMBER.getValue()).isPresent();
+		return numberRepository.findByValue(NumberEnum.LAST_NUMBER.getValue() + NumberEnum.REGION.getValue()).isPresent();
 	}
 }
