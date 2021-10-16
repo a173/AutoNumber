@@ -8,8 +8,8 @@ import lombok.RequiredArgsConstructor;
 public enum NumberEnum {
 	REGION(" 116 RUS"),
 	MAX("999"),
-	DEFAULT_NUMBER("A000AA" + REGION.getValue()),
-	LAST_NUMBER("Х999ХХ" + REGION.getValue()),
+	DEFAULT_NUMBER("A000AA"),
+	LAST_NUMBER("Х999ХХ"),
 	ALPHABET("АВЕКМНОРСТУХ"),
 	OVER_NUMBER_LIMIT("Over number limit");
 
