@@ -11,7 +11,7 @@ public enum NumberEnum {
 	RUS(" RUS"),
 	MAX("999"),
 	ALPHABET("АВЕКМНОРСТУХ"),
-	OVER_NUMBER_LIMIT("Over number limit");
+	OVER_NUMBER_LIMIT("Over number limit for region " + REGION.getValue());
 
 	private final String value;
 }
