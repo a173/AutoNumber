@@ -69,17 +69,20 @@ public class NumberServiceImpl implements NumberService {
 		return newEntity;
 	}
 
-	private NumberEntity createNextEntity(NumberEntity lastNumber) {
+	private NumberEntity createNextEntity(NumberEntity lastNumber) throws OverNumberLimit {
 		NumberParse numberParse = numberMapper.entityToNumber(lastNumber);
 
 		String newFigures = String.format("%03d", changeFigures(numberParse.getFigures()));
 		numberParse.setFigures(newFigures);
 
-		if (newFigures.equals("000")) {
+		if (newFigures.equals("001")) {
 			String newLastLetters = changeLast(numberParse.getLastLetter());
 			numberParse.setLastLetter(newLastLetters);
 
 			if (newLastLetters.equals("АА")) {
+				if (numberParse.getFirstLetter().equals(lastLetter()))
+					throw new OverNumberLimit(NumberEnum.OVER_NUMBER_LIMIT.getValue());
+
 				Character newFirstLetter = nextLetter(numberParse.getFirstLetter());
 				numberParse.setFirstLetter(newFirstLetter);
 			}
@@ -91,7 +94,7 @@ public class NumberServiceImpl implements NumberService {
 	private int changeFigures(String oldNum) {
 		int number = Integer.parseInt(oldNum);
 
-		return number < Integer.parseInt(NumberEnum.MAX.getValue()) ? ++number : 0;
+		return number < Integer.parseInt(NumberEnum.MAX.getValue()) ? ++number : 1;
 	}
 
 	private String changeLast(String oldLet) {
