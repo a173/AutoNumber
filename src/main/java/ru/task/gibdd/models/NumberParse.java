@@ -9,4 +9,5 @@ public class NumberParse {
 	Character firstLetter;
 	String figures;
 	String lastLetter;
+	String region;
 }

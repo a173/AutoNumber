@@ -1,11 +1,9 @@
 package ru.task.gibdd.services.impl;
 
-import com.google.common.collect.Lists;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.data.crossstore.ChangeSetPersister.NotFoundException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import ru.task.gibdd.config.NumberEnum;
 import ru.task.gibdd.exceptions.OverNumberLimit;
@@ -16,7 +14,6 @@ import ru.task.gibdd.models.NumberRs;
 import ru.task.gibdd.repository.NumberRepository;
 import ru.task.gibdd.services.NumberService;
 
-import java.util.List;
 import java.util.Set;
 
 @Service
@@ -26,42 +23,45 @@ public class NumberServiceImpl implements NumberService {
 	private final NumberMapper numberMapper;
 
 	@Override
-	public List<NumberRs> all() {
-		return numberMapper.toDtoList(Lists.newArrayList(numberRepository.findAll()));
+	public Set<NumberRs> all() {
+		return numberMapper.toDtoList(numberRepository.findAll());
 	}
 
 	@Override
-	@Transactional(isolation = Isolation.SERIALIZABLE)
-	public NumberRs next() throws OverNumberLimit {
-		if (checkLastNumber())
-			throw new OverNumberLimit(NumberEnum.OVER_NUMBER_LIMIT.getValue());
-
-		NumberEntity newNumber;
-		try {
-			NumberEntity lastNumber = numberRepository.findLast().orElseThrow(NotFoundException::new);
-			if (checkNewRegion(lastNumber))
-				throw new NotFoundException();
-
-			newNumber = numberRepository.save(createNextNumber(lastNumber));
-		} catch (NotFoundException ex) {
-			NumberEntity defaultNumber = NumberEntity.builder()
-					.value(NumberEnum.DEFAULT_NUMBER.getValue() + NumberEnum.REGION.getValue())
-					.build();
-
-			newNumber = numberRepository.save(createNextNumber(defaultNumber));
-		}
-
-		return numberMapper.numberToRs(newNumber);
+	public Set<NumberRs> allByRegion(String region) {
+		return numberMapper.toDtoList(numberRepository.findAllByRegion(region));
 	}
 
-	private boolean checkNewRegion(NumberEntity lastNumber) {
-		return !lastNumber.getValue().substring(6).equals(NumberEnum.REGION.getValue());
+	@Override
+	@Transactional
+	public NumberRs next() throws OverNumberLimit {
+		NumberEntity newNumber;
+
+		try {
+			NumberEntity lastNumber = numberRepository
+					.findLast(NumberEnum.REGION.getValue()).orElseThrow(NotFoundException::new);
+
+			newNumber = createNextNumber(lastNumber);
+		} catch (NotFoundException ex) {
+			NumberEntity defaultNumber = NumberEntity.builder()
+					.value(NumberEnum.DEFAULT_NUMBER.getValue())
+					.region(NumberEnum.REGION.getValue())
+					.build();
+
+			newNumber = createNextNumber(defaultNumber);
+		}
+
+		return numberMapper.numberToRs(numberRepository.save(newNumber));
 	}
 
 	private NumberEntity createNextNumber(NumberEntity lastNumber) throws OverNumberLimit {
-		Set<NumberEntity> setNumber = numberRepository.findAll();
-
 		NumberEntity newEntity = lastNumber;
+
+		Set<NumberEntity> setNumber = numberRepository.findAllByRegion(NumberEnum.REGION.getValue());
+
+		if (setNumber.size() == maxCombination())
+			throw new OverNumberLimit(NumberEnum.OVER_NUMBER_LIMIT.getValue());
+
 		do {
 			newEntity = createNextEntity(newEntity);
 		} while (setNumber.contains(newEntity));
@@ -69,7 +69,7 @@ public class NumberServiceImpl implements NumberService {
 		return newEntity;
 	}
 
-	private NumberEntity createNextEntity(NumberEntity lastNumber) throws OverNumberLimit {
+	private NumberEntity createNextEntity(NumberEntity lastNumber) {
 		NumberParse numberParse = numberMapper.entityToNumber(lastNumber);
 
 		String newFigures = String.format("%03d", changeFigures(numberParse.getFigures()));
@@ -80,8 +80,6 @@ public class NumberServiceImpl implements NumberService {
 			numberParse.setLastLetter(newLastLetters);
 
 			if (newLastLetters.equals("АА")) {
-				if (numberParse.getFirstLetter() == lastLetter())
-					throw new OverNumberLimit(NumberEnum.OVER_NUMBER_LIMIT.getValue());
 				Character newFirstLetter = nextLetter(numberParse.getFirstLetter());
 				numberParse.setFirstLetter(newFirstLetter);
 			}
@@ -121,20 +119,20 @@ public class NumberServiceImpl implements NumberService {
 	}
 
 	@Override
-	@Transactional(isolation = Isolation.SERIALIZABLE)
+	@Transactional
 	public NumberRs random() throws OverNumberLimit {
-		if (checkLastNumber())
-			throw new OverNumberLimit(NumberEnum.OVER_NUMBER_LIMIT.getValue());
-
 		NumberEntity newNumber = numberRepository.save(createRandomNumber());
 
 		return numberMapper.numberToRs(newNumber);
 	}
 
-	private NumberEntity createRandomNumber() {
-		Set<NumberEntity> setNumber = numberRepository.findAll();
-
+	private NumberEntity createRandomNumber() throws OverNumberLimit {
 		NumberEntity newNumber;
+		Set<NumberEntity> setNumber = numberRepository.findAllByRegion(NumberEnum.REGION.getValue());
+
+		if (setNumber.size() == maxCombination())
+			throw new OverNumberLimit(NumberEnum.OVER_NUMBER_LIMIT.getValue());
+
 		do {
 			newNumber = createRandomEntity();
 		} while (setNumber.contains(newNumber));
@@ -150,7 +148,7 @@ public class NumberServiceImpl implements NumberService {
 				.build(), NumberEnum.REGION);
 	}
 
-	private boolean checkLastNumber() {
-		return numberRepository.findByValue(NumberEnum.LAST_NUMBER.getValue() + NumberEnum.REGION.getValue()).isPresent();
+	private Double maxCombination() {
+		return Math.pow(12, 3) * Math.pow(10, 3) - Math.pow(12, 3);
 	}
 }

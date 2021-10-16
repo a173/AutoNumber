@@ -8,7 +8,7 @@ spring:
       ddl-auto: update
     show-sql: true
   datasource:
-    url: jdbc:postgresql://gibdd_db:5432/gibdd
+    url: jdbc:postgresql://localhost:5432/gibdd
     driver-class-name: org.postgresql.Driver
     username: test
     password: test
