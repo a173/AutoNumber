@@ -38,20 +38,16 @@ public class NumberServiceImpl implements NumberService {
 		NumberEntity newNumber;
 
 		try {
-			NumberEntity lastNumber = numberRepository
+			newNumber = numberRepository
 					.findLast(NumberEnum.REGION.getValue()).orElseThrow(NotFoundException::new);
-
-			newNumber = createNextNumber(lastNumber);
 		} catch (NotFoundException ex) {
-			NumberEntity defaultNumber = NumberEntity.builder()
+			newNumber = NumberEntity.builder()
 					.value(NumberEnum.DEFAULT_NUMBER.getValue())
 					.region(NumberEnum.REGION.getValue())
 					.build();
-
-			newNumber = createNextNumber(defaultNumber);
 		}
 
-		return numberMapper.numberToRs(numberRepository.save(newNumber));
+		return numberMapper.numberToRs(numberRepository.save(createNextNumber(newNumber)));
 	}
 
 	private NumberEntity createNextNumber(NumberEntity lastNumber) throws OverNumberLimit {
@@ -124,9 +120,7 @@ public class NumberServiceImpl implements NumberService {
 	@Override
 	@Transactional
 	public NumberRs random() throws OverNumberLimit {
-		NumberEntity newNumber = numberRepository.save(createRandomNumber());
-
-		return numberMapper.numberToRs(newNumber);
+		return numberMapper.numberToRs(numberRepository.save(createRandomNumber()));
 	}
 
 	private NumberEntity createRandomNumber() throws OverNumberLimit {
