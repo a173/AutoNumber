@@ -1,10 +1,10 @@
 package ru.task.gibdd.services.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.Synchronized;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.data.crossstore.ChangeSetPersister.NotFoundException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import ru.task.gibdd.config.NumberEnum;
 import ru.task.gibdd.exceptions.OverNumberLimit;
 import ru.task.gibdd.mappers.NumberMapper;
@@ -33,7 +33,7 @@ public class NumberServiceImpl implements NumberService {
 	}
 
 	@Override
-	@Transactional
+	@Synchronized
 	public NumberRs next() throws OverNumberLimit {
 		NumberEntity newNumber;
 
@@ -118,7 +118,7 @@ public class NumberServiceImpl implements NumberService {
 	}
 
 	@Override
-	@Transactional
+	@Synchronized
 	public NumberRs random() throws OverNumberLimit {
 		return numberMapper.numberToRs(numberRepository.save(createRandomNumber()));
 	}
