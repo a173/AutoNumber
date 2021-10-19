@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import ru.task.gibdd.config.NumberEnum;
 import ru.task.gibdd.exceptions.OverNumberLimit;
 import ru.task.gibdd.models.NumberRs;
 import ru.task.gibdd.services.NumberService;
@@ -26,8 +27,7 @@ class GibddApplicationTests {
 	private NumberService numberService;
 
 	@Container
-	public static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:13")
-			.withInitScript("db.sql");
+	public static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:13");
 
 	static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
 		public void initialize(ConfigurableApplicationContext configurableApplicationContext) {
@@ -35,7 +35,7 @@ class GibddApplicationTests {
 					"spring.datasource.url=" + postgreSQLContainer.getJdbcUrl(),
 					"spring.datasource.username=" + postgreSQLContainer.getUsername(),
 					"spring.datasource.password=" + postgreSQLContainer.getPassword(),
-					"spring.liquibase.enabled=false"
+					"spring.liquibase.enabled=true"
 			).applyTo(configurableApplicationContext.getEnvironment());
 		}
 	}
@@ -44,14 +44,14 @@ class GibddApplicationTests {
 	@Transactional
 	void countNumberInList() {
 		int size = numberService.all().size();
-		assertEquals(2, size);
+		assertEquals(0, size);
 	}
 
 	@Test
 	@Transactional
 	void nextNumber() throws OverNumberLimit {
 		NumberRs next = numberService.next();
-		assertEquals(next.getValue(), "Х052РХ 116 RUS");
+		assertEquals(next.getValue(),  "A001AА " + NumberEnum.REGION.getValue() + NumberEnum.RUS.getValue());
 	}
 
 	@Test
@@ -60,7 +60,7 @@ class GibddApplicationTests {
 		for (int i = 0; i < 99; i++)
 			numberService.next();
 		NumberRs next = numberService.next();
-		assertEquals(next.getValue(), "Х151РХ 116 RUS");
+		assertEquals(next.getValue(), "A100AА " + NumberEnum.REGION.getValue() + NumberEnum.RUS.getValue());
 	}
 
 	@Test
@@ -73,6 +73,6 @@ class GibddApplicationTests {
 		assertNotEquals(random, next);
 		assertEquals(random.getValue().length(), 14);
 		assertEquals(next.getValue().length(), 14);
-		assertEquals(size, 4);
+		assertEquals(size, 2);
 	}
 }
