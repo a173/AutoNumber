@@ -4,6 +4,7 @@
 CREATE TABLE t_number (
     id          BIGSERIAL PRIMARY KEY,
     value       VARCHAR(6) NOT NULL,
-    region      VARCHAR(3) NOT NULL
+    region      VARCHAR(3) NOT NULL,
+    UNIQUE(value, region)
 );
 --rollback DROP TABLE t_number
